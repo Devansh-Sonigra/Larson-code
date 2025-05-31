@@ -6,7 +6,7 @@ Steps to run
 ```bash
 cmake .
 make
-./demo
+./projection
 ```
 
 After running, the numerical error will be written to a LaTeX file named error.tex.

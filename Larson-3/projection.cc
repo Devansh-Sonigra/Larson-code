@@ -209,7 +209,7 @@ void Projection::run(std::vector<int> &ncell,
 int main ()
 {
    deallog.depth_console (0);
-   unsigned int nrefine = 4;
+   unsigned int nrefine = 10;
    Projection problem (nrefine);
    std::vector<int> ncell(nrefine), ndofs(nrefine);
    std::vector<double> L2_error(nrefine), H1_error(nrefine);
