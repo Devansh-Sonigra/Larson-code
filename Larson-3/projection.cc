@@ -237,6 +237,11 @@ int main ()
    convergence_table.set_tex_format("cells", "r");
    convergence_table.set_tex_format("dofs",  "r");
 
+   convergence_table.evaluate_convergence_rates
+         ("L2", ConvergenceTable::reduction_rate_log2);
+      convergence_table.evaluate_convergence_rates
+         ("H1", ConvergenceTable::reduction_rate_log2);
+
    std::cout << std::endl;
    convergence_table.write_text(std::cout);
 
