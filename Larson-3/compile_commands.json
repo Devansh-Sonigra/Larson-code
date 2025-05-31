@@ -1,8 +1,0 @@
-[
-{
-  "directory": "/Users/pareshsonigra/Desktop/Languages/CPP/Larson-3",
-  "command": "/Library/Developer/CommandLineTools/usr/bin/c++ -DNDEBUG -isystem /Users/pareshsonigra/deal.II/include -isystem /Users/pareshsonigra/deal.II/include/deal.II/bundled -std=gnu++17 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX11.1.sdk -mmacosx-version-min=10.15 -pedantic -Wall -Wextra -Wmissing-braces -Woverloaded-virtual -Wpointer-arith -Wsign-compare -Wswitch -Wsynth -Wwrite-strings -Wno-deprecated-declarations -Wfloat-conversion -Qunused-arguments -Wno-unsupported-friend -Wno-pass-failed -Wno-parentheses -Wno-unused-local-typedefs -openmp-simd -ftemplate-depth=1024 -march=native -mtune=native -std=c++17 -O2 -funroll-loops -fstrict-aliasing -O3 -o CMakeFiles/Projection.dir/Projection.cc.o -c /Users/pareshsonigra/Desktop/Languages/CPP/Larson-3/Projection.cc",
-  "file": "/Users/pareshsonigra/Desktop/Languages/CPP/Larson-3/Projection.cc",
-  "output": "CMakeFiles/Projection.dir/Projection.cc.o"
-}
-]
