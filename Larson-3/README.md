@@ -12,6 +12,6 @@ make
 After running, the numerical error will be written to a LaTeX file named error.tex.
 
 To compile it to PDF:
-'''bash
+```bash
 pdflatex error.tex
-'''
+```
