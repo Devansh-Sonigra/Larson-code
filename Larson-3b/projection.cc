@@ -5,6 +5,8 @@
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/fe/fe_simplex_p.h>
 #include <deal.II/fe/mapping_fe.h>
+#include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_values.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/matrix_tools.h>
 #include <deal.II/numerics/error_estimator.h>
@@ -93,7 +95,7 @@ Tensor<1,3> ExactSolution<3>::gradient (const Point<3>   &p, const unsigned int)
 template<int dim>
 class Projection {
     public:
-        Projection( unsigned int nrefine, unsigned int degree);
+        Projection( unsigned int nrefine, unsigned int degree, std::string mesh_type);
         void run(std::vector<int> &ncell,
                 std::vector<int> &ndofs,
                 std::vector<double> &L2_error,
@@ -108,8 +110,10 @@ class Projection {
         void refine_grid();
 
         unsigned int            nrefine;
+        std::string             mesh_type;
         Triangulation<dim>      triangulation;
-        const FE_SimplexP<dim>  fe;
+        const FE_SimplexP<dim>  fe_1;
+        const FE_Q<dim>         fe_2;
         MappingFE<dim>          mapping;
         DoFHandler<dim>         dof_handler;
 
@@ -121,26 +125,38 @@ class Projection {
 };
 
 template<int dim>
-Projection<dim>::Projection( unsigned int nrefine, unsigned int degree):
+Projection<dim>::Projection( unsigned int nrefine, unsigned int degree, std::string mesh_type):
     nrefine(nrefine),
-    fe(degree),
+    mesh_type(mesh_type),
+    fe_1(degree),
+    fe_2(degree),
     mapping(FE_SimplexP<dim>(1)),
     dof_handler(triangulation)
 {}
 
 template<int dim>
 void Projection<dim>::make_grid_and_dofs() {
-    Triangulation<dim> tria;
-    GridGenerator::hyper_cube(tria);
-    //  tria.refine_global(1);
 
-    GridGenerator::convert_hypercube_to_simplex_mesh(tria, triangulation);
+    if (mesh_type == "triangle") {
+        Triangulation<dim> tria;
+        GridGenerator::hyper_cube(tria);
+        //  tria.refine_global(1);
 
+        GridGenerator::convert_hypercube_to_simplex_mesh(tria, triangulation);
+    } else  {
+        GridGenerator::hyper_cube(triangulation);  
+        triangulation.refine_global(1);
+    }
 }
 
 template<int dim>
 void Projection<dim>::setup_system() {
-    dof_handler.distribute_dofs(fe);
+    
+    if (mesh_type == "triangle") {
+        dof_handler.distribute_dofs(fe_1);
+    } else {
+        dof_handler.distribute_dofs(fe_2);
+    }
 
     DynamicSparsityPattern dsp(dof_handler.n_dofs());
     DoFTools::make_sparsity_pattern(dof_handler, dsp);
@@ -156,41 +172,80 @@ template<int dim>
 void Projection<dim>::assemble_system() {
     mass_matrix = 0;
     system_rhs = 0;
+    unsigned int dofs_per_cell;
 
-    QGaussSimplex<dim> quadrature_formula(fe.degree + 1);
-    FEValues<dim> fe_values (mapping, fe, quadrature_formula, update_values | update_gradients | update_quadrature_points | update_JxW_values);
+    if (mesh_type == "triangle") {
+        QGaussSimplex<dim> quadrature_formula(fe_1.degree + 1);
+        FEValues<dim> fe_values (mapping, fe_1, quadrature_formula, update_values | update_gradients | update_quadrature_points | update_JxW_values);
 
-    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
-    const unsigned int   n_q_points    = quadrature_formula.size();
-    ExactSolution<dim> exact_solution;  
+        dofs_per_cell = fe_1.dofs_per_cell;
+        const unsigned int   n_q_points    = quadrature_formula.size();
+        ExactSolution<dim> exact_solution;  
 
-    FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
-    Vector<double>       cell_rhs (dofs_per_cell);
-    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
+        FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
+        Vector<double>       cell_rhs (dofs_per_cell);
+        std::vector<unsigned int> local_dof_indices (dofs_per_cell);
 
-    for(const auto  &cell : dof_handler.active_cell_iterators()){
-        fe_values.reinit(cell);
-        cell_matrix = 0;
-        cell_rhs = 0;
+        for(const auto  &cell : dof_handler.active_cell_iterators()){
+            fe_values.reinit(cell);
+            cell_matrix = 0;
+            cell_rhs = 0;
 
-        for(unsigned int q_point = 0; q_point< n_q_points; ++q_point) {
+            for(unsigned int q_point = 0; q_point< n_q_points; ++q_point) {
+                for(unsigned int i = 0; i < dofs_per_cell ; ++i) {
+                    for(unsigned int j = 0; j < dofs_per_cell; ++j) {
+                        cell_matrix(i, j) += fe_values.shape_value(i, q_point) * fe_values.shape_value(j, q_point) * fe_values.JxW(q_point);
+                    }
+                    cell_rhs(i) += exact_solution.value(fe_values.quadrature_point(q_point)) * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point);
+                }
+            }
+
+            cell->get_dof_indices(local_dof_indices);
             for(unsigned int i = 0; i < dofs_per_cell ; ++i) {
                 for(unsigned int j = 0; j < dofs_per_cell; ++j) {
-                    cell_matrix(i, j) += fe_values.shape_value(i, q_point) * fe_values.shape_value(j, q_point) * fe_values.JxW(q_point);
+                    mass_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i,j));
                 }
-                cell_rhs(i) += exact_solution.value(fe_values.quadrature_point(q_point)) * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point);
+                system_rhs(local_dof_indices[i]) += cell_rhs(i);
             }
-        }
 
-        cell->get_dof_indices(local_dof_indices);
-        for(unsigned int i = 0; i < dofs_per_cell ; ++i) {
-            for(unsigned int j = 0; j < dofs_per_cell; ++j) {
-                mass_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i,j));
+        }
+    } else {
+        QGauss<dim> quadrature_formula(fe_2.degree + 1);
+        FEValues<dim> fe_values( fe_2, quadrature_formula, update_values | update_gradients | update_quadrature_points | update_JxW_values);
+        dofs_per_cell = fe_2.dofs_per_cell;
+
+        const unsigned int   n_q_points    = quadrature_formula.size();
+        ExactSolution<dim> exact_solution;  
+
+        FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
+        Vector<double>       cell_rhs (dofs_per_cell);
+        std::vector<unsigned int> local_dof_indices (dofs_per_cell);
+
+        for(const auto  &cell : dof_handler.active_cell_iterators()){
+            fe_values.reinit(cell);
+            cell_matrix = 0;
+            cell_rhs = 0;
+
+            for(unsigned int q_point = 0; q_point< n_q_points; ++q_point) {
+                for(unsigned int i = 0; i < dofs_per_cell ; ++i) {
+                    for(unsigned int j = 0; j < dofs_per_cell; ++j) {
+                        cell_matrix(i, j) += fe_values.shape_value(i, q_point) * fe_values.shape_value(j, q_point) * fe_values.JxW(q_point);
+                    }
+                    cell_rhs(i) += exact_solution.value(fe_values.quadrature_point(q_point)) * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point);
+                }
             }
-            system_rhs(local_dof_indices[i]) += cell_rhs(i);
-        }
 
+            cell->get_dof_indices(local_dof_indices);
+            for(unsigned int i = 0; i < dofs_per_cell ; ++i) {
+                for(unsigned int j = 0; j < dofs_per_cell; ++j) {
+                    mass_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i,j));
+                }
+                system_rhs(local_dof_indices[i]) += cell_rhs(i);
+            }
+
+        }
     }
+
 }
 
 template<int dim>
@@ -204,14 +259,26 @@ template<int dim>
 void Projection<dim>::compute_error(double &L2_error, double &H1_error) {
     ExactSolution<dim> exact_solution;  
 
-    Vector<double> difference_per_cell (triangulation.n_active_cells());
-    VectorTools::integrate_difference (mapping, dof_handler, solution, exact_solution, difference_per_cell, QGaussSimplex<dim>(2*fe.degree+1),VectorTools::L2_norm);
+    if (mesh_type == "triangle") {
+        Vector<double> difference_per_cell (triangulation.n_active_cells());
+        VectorTools::integrate_difference (mapping, dof_handler, solution, exact_solution, difference_per_cell, QGaussSimplex<dim>(2*fe_1.degree+1),VectorTools::L2_norm);
 
-    L2_error = difference_per_cell.l2_norm();
+        L2_error = difference_per_cell.l2_norm();
 
-    VectorTools::integrate_difference (mapping, dof_handler, solution, exact_solution, difference_per_cell, QGaussSimplex<dim>(2*fe.degree+1),VectorTools::H1_seminorm);
+        VectorTools::integrate_difference (mapping, dof_handler, solution, exact_solution, difference_per_cell, QGaussSimplex<dim>(2*fe_1.degree+1),VectorTools::H1_seminorm);
 
-    H1_error = difference_per_cell.l2_norm();
+        H1_error = difference_per_cell.l2_norm();
+    } else {
+        Vector<double> difference_per_cell (triangulation.n_active_cells());
+        VectorTools::integrate_difference (dof_handler, solution, exact_solution, difference_per_cell, QGauss<dim>(2*fe_2.degree+1),VectorTools::L2_norm);
+
+        L2_error = difference_per_cell.l2_norm();
+
+        VectorTools::integrate_difference (dof_handler, solution, exact_solution, difference_per_cell, QGauss<dim>(2*fe_2.degree+1),VectorTools::H1_seminorm);
+
+        H1_error = difference_per_cell.l2_norm();
+          
+    }
 }
 
 template<int dim>
@@ -248,8 +315,9 @@ int main ()
     // unsigned int nrefine = 10;
     unsigned int nrefine = 4; 
     unsigned int degree = 1; 
+    std::string mesh_type = "triangle";
 
-    Projection<2> problem (nrefine, degree);
+    Projection<2> problem (nrefine, degree, mesh_type);
     std::vector<int> ncell(nrefine), ndofs(nrefine);
     std::vector<double> L2_error(nrefine), H1_error(nrefine);
     problem.run (ncell, ndofs, L2_error, H1_error);
