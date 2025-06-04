@@ -89,7 +89,7 @@ Tensor<1,3> ExactSolution<3>::gradient (const Point<3>   &p, const unsigned int)
 
     // values[0] = p[1] * cos(p[0] * p[1]);
     // values[1] = p[0] * cos(p[0] * p[1]);
-    return values;
+    // return values;
 }
 
 template<int dim>
