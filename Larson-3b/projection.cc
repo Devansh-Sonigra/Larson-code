@@ -60,17 +60,17 @@ template<>
 Tensor<1,2> ExactSolution<2>::gradient (const Point<2>   &p, const unsigned int) const
 {
     Tensor<1,2> values;
-    //    values[0] = 2 * p[0]; 
-    //    values[1] = 2 * p[1];
-    //    return values;
+    values[0] = 2 * p[0]; 
+    values[1] = 2 * p[1];
+    return values;
 
     //    values[0] = 1;
     //    values[1] = 1;
     //    return values;
 
-    values[0] = p[1] * cos(p[0] * p[1]);
-    values[1] = p[0] * cos(p[0] * p[1]);
-    return values;
+    // values[0] = p[1] * cos(p[0] * p[1]);
+    // values[1] = p[0] * cos(p[0] * p[1]);
+    // return values;
 }
 
 
