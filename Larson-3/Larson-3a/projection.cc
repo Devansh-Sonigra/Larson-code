@@ -30,17 +30,18 @@ using namespace dealii;
 template<int dim>
 class ExactSolution : public Function<dim>
 {
-    public:
-        ExactSolution () : Function<dim>() {}
+public:
+    ExactSolution () : Function<dim>() {}
 
-        double value (const Point<dim>   &p,
-                const unsigned int  component = 0) const override;
-       Tensor<1,dim> gradient (const Point<dim>   &p,
-               const unsigned int  component = 0) const override;
+    double value (const Point<dim>   &p,
+                  const unsigned int  component = 0) const override;
+    Tensor<1, dim> gradient (const Point<dim>   &p,
+                             const unsigned int  component = 0) const override;
 };
 
 template<>
-double ExactSolution<2>::value (const Point<2> &p, const unsigned int /*component*/) const
+double ExactSolution<2>::value (const Point<2> &p,
+                                const unsigned int /*component*/) const
 {
     //    return p[0] * p[0] + p[1] *p[1];
     //   return p[0] + p[1];
@@ -49,18 +50,20 @@ double ExactSolution<2>::value (const Point<2> &p, const unsigned int /*componen
 
 
 template<>
-double ExactSolution<3>::value (const Point<3> &p, const unsigned int /*component*/) const
+double ExactSolution<3>::value (const Point<3> &p,
+                                const unsigned int /*component*/) const
 {
-       return p[0] * p[0] + p[1] *p[1] + p[2] * p[2];
+    return p[0] * p[0] + p[1] * p[1] + p[2] * p[2];
     //   return p[0] + p[1];
     // return sin(p[0] * p[1]);
 }
 
 template<>
-Tensor<1,2> ExactSolution<2>::gradient (const Point<2>   &p, const unsigned int) const
+Tensor<1, 2> ExactSolution<2>::gradient (const Point<2>   &p,
+                                         const unsigned int) const
 {
-    Tensor<1,2> values;
-    //    values[0] = 2 * p[0]; 
+    Tensor<1, 2> values;
+    //    values[0] = 2 * p[0];
     //    values[1] = 2 * p[1];
     //    return values;
 
@@ -75,13 +78,14 @@ Tensor<1,2> ExactSolution<2>::gradient (const Point<2>   &p, const unsigned int)
 
 
 template<>
-Tensor<1,3> ExactSolution<3>::gradient (const Point<3>   &p, const unsigned int) const
+Tensor<1, 3> ExactSolution<3>::gradient (const Point<3>   &p,
+                                         const unsigned int) const
 {
-    Tensor<1,3> values;
-       values[0] = 2 * p[0]; 
-       values[1] = 2 * p[1];
-       values[2] = 2 * p[2];
-       return values;
+    Tensor<1, 3> values;
+    values[0] = 2 * p[0];
+    values[1] = 2 * p[1];
+    values[2] = 2 * p[2];
+    return values;
 
     //    values[0] = 1;
     //    values[1] = 1;
@@ -93,34 +97,35 @@ Tensor<1,3> ExactSolution<3>::gradient (const Point<3>   &p, const unsigned int)
 }
 
 template<int dim>
-class Projection {
-    public:
-        Projection( unsigned int nrefine, unsigned int degree);
-        void run(std::vector<int> &ncell,
-                std::vector<int> &ndofs,
-                std::vector<double> &L2_error,
-                std::vector<double> &H1_error,
-                std::vector<int>  &niterations);
+class Projection
+{
+public:
+    Projection( unsigned int nrefine, unsigned int degree);
+    void run(std::vector<int> &ncell,
+             std::vector<int> &ndofs,
+             std::vector<double> &L2_error,
+             std::vector<double> &H1_error,
+             std::vector<int>  &niterations);
 
-    private:
-        void make_grid_and_dofs();
-        void setup_system();
-        void assemble_system();
-        void solve(int &niteration);
-        void compute_error(double &L2_error, double &H1_error);
-        void refine_grid();
+private:
+    void make_grid_and_dofs();
+    void setup_system();
+    void assemble_system();
+    void solve(int &niteration);
+    void compute_error(double &L2_error, double &H1_error);
+    void refine_grid();
 
-        unsigned int            nrefine;
-        Triangulation<dim>      triangulation;
-        const FE_SimplexP<dim>  fe;
-        MappingFE<dim>          mapping;
-        DoFHandler<dim>         dof_handler;
+    unsigned int            nrefine;
+    Triangulation<dim>      triangulation;
+    const FE_SimplexP<dim>  fe;
+    MappingFE<dim>          mapping;
+    DoFHandler<dim>         dof_handler;
 
-        SparsityPattern         sparsity_pattern;
-        SparseMatrix<double>    mass_matrix;
+    SparsityPattern         sparsity_pattern;
+    SparseMatrix<double>    mass_matrix;
 
-        Vector<double>          system_rhs;
-        Vector<double>          solution;
+    Vector<double>          system_rhs;
+    Vector<double>          solution;
 };
 
 template<int dim>
@@ -132,7 +137,8 @@ Projection<dim>::Projection( unsigned int nrefine, unsigned int degree):
 {}
 
 template<int dim>
-void Projection<dim>::make_grid_and_dofs() {
+void Projection<dim>::make_grid_and_dofs()
+{
     Triangulation<dim> tria;
     GridGenerator::hyper_cube(tria);
     //  tria.refine_global(1);
@@ -142,7 +148,8 @@ void Projection<dim>::make_grid_and_dofs() {
 }
 
 template<int dim>
-void Projection<dim>::setup_system() {
+void Projection<dim>::setup_system()
+{
     dof_handler.distribute_dofs(fe);
 
     DynamicSparsityPattern dsp(dof_handler.n_dofs());
@@ -156,41 +163,46 @@ void Projection<dim>::setup_system() {
 }
 
 template<int dim>
-void Projection<dim>::assemble_system() {
+void Projection<dim>::assemble_system()
+{
     mass_matrix = 0;
     system_rhs = 0;
 
     // This takes input of what polynomial degree to be integrated exactly
     QGaussSimplex<dim> quadrature_formula(fe.degree + 1);
-    FEValues<dim> fe_values (mapping, fe, quadrature_formula, update_values | update_gradients | update_quadrature_points | update_JxW_values);
+    FEValues<dim> fe_values (mapping, fe, quadrature_formula,
+                             update_values | update_gradients | update_quadrature_points |
+                             update_JxW_values);
 
     const unsigned int   dofs_per_cell = fe.dofs_per_cell;
     const unsigned int   n_q_points    = quadrature_formula.size();
-    ExactSolution<dim> exact_solution;  
+    ExactSolution<dim> exact_solution;
 
     FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
     Vector<double>       cell_rhs (dofs_per_cell);
     std::vector<unsigned int> local_dof_indices (dofs_per_cell);
 
-    for(const auto  &cell : dof_handler.active_cell_iterators()){
+    for (const auto  &cell : dof_handler.active_cell_iterators()) {
         fe_values.reinit(cell);
         cell_matrix = 0;
         cell_rhs = 0;
 
-        for(unsigned int q_point = 0; q_point< n_q_points; ++q_point) {
-            float temp = exact_solution.value(fe_values.quadrature_point(q_point)); 
-            for(unsigned int i = 0; i < dofs_per_cell ; ++i) {
-                for(unsigned int j = 0; j < dofs_per_cell; ++j) {
-                    cell_matrix(i, j) += fe_values.shape_value(i, q_point) * fe_values.shape_value(j, q_point) * fe_values.JxW(q_point);
+        for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
+            float temp = exact_solution.value(fe_values.quadrature_point(q_point));
+            for (unsigned int i = 0; i < dofs_per_cell ; ++i) {
+                for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+                    cell_matrix(i, j) += fe_values.shape_value(i,
+                                                               q_point) * fe_values.shape_value(j, q_point) * fe_values.JxW(q_point);
                 }
-                cell_rhs(i) += temp * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point);
+                cell_rhs(i) += temp * fe_values.shape_value(i,
+                                                            q_point) * fe_values.JxW(q_point);
             }
         }
 
         cell->get_dof_indices(local_dof_indices);
-        for(unsigned int i = 0; i < dofs_per_cell ; ++i) {
-            for(unsigned int j = 0; j < dofs_per_cell; ++j) {
-                mass_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i,j));
+        for (unsigned int i = 0; i < dofs_per_cell ; ++i) {
+            for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+                mass_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i, j));
             }
             system_rhs(local_dof_indices[i]) += cell_rhs(i);
         }
@@ -199,7 +211,8 @@ void Projection<dim>::assemble_system() {
 }
 
 template<int dim>
-void Projection<dim>::solve(int &niteration) {
+void Projection<dim>::solve(int &niteration)
+{
     SolverControl           solver_control (1000, 1e-12 * system_rhs.l2_norm());
     SolverCG<Vector<double>>              cg (solver_control);
 
@@ -216,35 +229,41 @@ void Projection<dim>::solve(int &niteration) {
 }
 
 template<int dim>
-void Projection<dim>::compute_error(double &L2_error, double &H1_error) {
-    ExactSolution<dim> exact_solution;  
+void Projection<dim>::compute_error(double &L2_error, double &H1_error)
+{
+    ExactSolution<dim> exact_solution;
 
     Vector<double> difference_per_cell (triangulation.n_active_cells());
-    VectorTools::integrate_difference (mapping, dof_handler, solution, exact_solution, difference_per_cell, QGaussSimplex<dim>(2*fe.degree+1),VectorTools::L2_norm);
+    VectorTools::integrate_difference (mapping, dof_handler, solution,
+                                       exact_solution, difference_per_cell, QGaussSimplex<dim>(2 * fe.degree + 1),
+                                       VectorTools::L2_norm);
 
     L2_error = difference_per_cell.l2_norm();
 
-    VectorTools::integrate_difference (mapping, dof_handler, solution, exact_solution, difference_per_cell, QGaussSimplex<dim>(2*fe.degree+1),VectorTools::H1_seminorm);
+    VectorTools::integrate_difference (mapping, dof_handler, solution,
+                                       exact_solution, difference_per_cell, QGaussSimplex<dim>(2 * fe.degree + 1),
+                                       VectorTools::H1_seminorm);
 
     H1_error = difference_per_cell.l2_norm();
 }
 
 template<int dim>
-void Projection<dim>::refine_grid() {
-    triangulation.refine_global(1);  
+void Projection<dim>::refine_grid()
+{
+    triangulation.refine_global(1);
 }
 
 template<int dim>
 void Projection<dim>::run(std::vector<int> &ncell,
-        std::vector<int> &ndofs,
-        std::vector<double> &L2_error,
-        std::vector<double> &H1_error,
-        std::vector<int> &niterations) {
+                          std::vector<int> &ndofs,
+                          std::vector<double> &L2_error,
+                          std::vector<double> &H1_error,
+                          std::vector<int> &niterations)
+{
     for (unsigned int n = 0; n < nrefine; ++n) {
         if (n == 0) {
-            make_grid_and_dofs();  
-        }
-        else {
+            make_grid_and_dofs();
+        } else {
             refine_grid();
         }
 
@@ -262,16 +281,15 @@ int main ()
 {
     deallog.depth_console (0);
     unsigned int nrefine = 10;
-    // unsigned int nrefine = 4; 
-    unsigned int degree = 1; 
+    // unsigned int nrefine = 4;
+    unsigned int degree = 1;
 
     Projection<2> problem (nrefine, degree);
     std::vector<int> ncell(nrefine), ndofs(nrefine), niterations(nrefine);
     std::vector<double> L2_error(nrefine), H1_error(nrefine);
     problem.run (ncell, ndofs, L2_error, H1_error, niterations);
     ConvergenceTable  convergence_table;
-    for(unsigned int n=0; n<nrefine; ++n)
-    {
+    for (unsigned int n = 0; n < nrefine; ++n) {
         // std::cout<< n << std::endl;
         convergence_table.add_value("cells", ncell[n]);
         convergence_table.add_value("dofs",  ndofs[n]);
@@ -297,9 +315,9 @@ int main ()
     convergence_table.set_tex_format("iterations",  "r");
 
     convergence_table.evaluate_convergence_rates
-        ("L2", ConvergenceTable::reduction_rate_log2);
+    ("L2", ConvergenceTable::reduction_rate_log2);
     convergence_table.evaluate_convergence_rates
-        ("H1", ConvergenceTable::reduction_rate_log2);
+    ("H1", ConvergenceTable::reduction_rate_log2);
 
     std::cout << std::endl;
     convergence_table.write_text(std::cout);
