@@ -279,7 +279,7 @@ void Projection<dim>::solve()
     SparseILU<double> preconditioner;
     preconditioner.initialize(mass_matrix);
 
-    cg.solve(mass_matrix, solution, system_rhs, PreconditionIdentity());
+    cg.solve(mass_matrix, solution, system_rhs, preconditioner);
 }
 
 template<int dim>
