@@ -23,7 +23,7 @@
 
 #include <iostream>
 #include <fstream>
-#include <cmath>
+#include <cmat>
 
 using namespace dealii;
 
@@ -93,22 +93,21 @@ Tensor<1, 3> ExactSolution<3>::gradient (const Point<3>   &p,
 
     // values[0] = p[1] * cos(p[0] * p[1]);
     // values[1] = p[0] * cos(p[0] * p[1]);
-    return values;
+    // return values;
 }
 
 template<int dim>
-class Projection
-{
-public:
-    Projection( unsigned int nrefine, unsigned int degree);
-    void run(std::vector<int> &ncell,
-             std::vector<int> &ndofs,
-             std::vector<double> &L2_error,
-             std::vector<double> &H1_error,
-             std::vector<int>  &niterations);
+class PoissonSolver {
+    public:
+      PoissonSolver( unsigned int nrefine, unsigned int degree);
+      void run(std::vector<int> &ncell,
+               std::vector<int> &ndofs,
+               std::vector<double> &L2_error,
+               std::vector<double> &H1_error,
+               std::vector<int> &niterations);
 
-private:
-    void make_grid_and_dofs();
+    private:
+      void make_grid_and_dofs();
     void setup_system();
     void assemble_system();
     void solve(int &niteration);
@@ -122,15 +121,15 @@ private:
     DoFHandler<dim>         dof_handler;
 
     SparsityPattern         sparsity_pattern;
-    SparseMatrix<double>    mass_matrix;
+    SparseMatrix<double>    stiffness_matrix;
 
     Vector<double>          system_rhs;
     Vector<double>          solution;
 };
 
 template<int dim>
-Projection<dim>::Projection( unsigned int nrefine, unsigned int degree):
-    nrefine(nrefine),
+PoissonSolver<dim>::PoissonSolver( unsigned int nrefine, unsigned int degree):
+    nrefine(nerefine),
     fe(degree),
     mapping(FE_SimplexP<dim>(1)),
     dof_handler(triangulation)
@@ -157,15 +156,16 @@ void Projection<dim>::setup_system()
     sparsity_pattern.copy_from(dsp);
 
     //  Initializing the all the matrices
-    mass_matrix.reinit(sparsity_pattern);
+    stiffness_matrix.reinit(sparsity_pattern);
     system_rhs.reinit(dof_handler.n_dofs());
     solution.reinit(dof_handler.n_dofs());
 }
 
+
 template<int dim>
 void Projection<dim>::assemble_system()
 {
-    mass_matrix = 0;
+    stiffness_matrix = 0;
     system_rhs = 0;
 
     // This takes input of what polynomial degree to be integrated exactly
@@ -176,7 +176,8 @@ void Projection<dim>::assemble_system()
 
     const unsigned int   dofs_per_cell = fe.dofs_per_cell;
     const unsigned int   n_q_points    = quadrature_formula.size();
-    ExactSolution<dim> exact_solution;
+    // ExactSolution<dim> exact_solution;
+    RHS_function<dim> rhs_function;
 
     FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
     Vector<double>       cell_rhs (dofs_per_cell);
@@ -188,11 +189,12 @@ void Projection<dim>::assemble_system()
         cell_rhs = 0;
 
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
-            float temp = exact_solution.value(fe_values.quadrature_point(q_point));
+            // float temp = exact_solution.value(fe_values.quadrature_point(q_point));
+            float temp = rhs_function.value(fe_values.quadrature_point(q_point));
             for (unsigned int i = 0; i < dofs_per_cell ; ++i) {
                 for (unsigned int j = 0; j < dofs_per_cell; ++j) {
-                    cell_matrix(i, j) += fe_values.shape_value(i,
-                                                               q_point) * fe_values.shape_value(j, q_point) * fe_values.JxW(q_point);
+                    cell_matrix(i, j) += fe_values.shape_grad(i,
+                                                               q_point) * fe_values.shape_grad(j, q_point) * fe_values.JxW(q_point);
                 }
                 cell_rhs(i) += temp * fe_values.shape_value(i,
                                                             q_point) * fe_values.JxW(q_point);
@@ -202,7 +204,7 @@ void Projection<dim>::assemble_system()
         cell->get_dof_indices(local_dof_indices);
         for (unsigned int i = 0; i < dofs_per_cell ; ++i) {
             for (unsigned int j = 0; j < dofs_per_cell; ++j) {
-                mass_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i, j));
+                stiffness_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i, j));
             }
             system_rhs(local_dof_indices[i]) += cell_rhs(i);
         }
@@ -216,15 +218,14 @@ void Projection<dim>::solve(int &niteration)
     SolverControl           solver_control (1000, 1e-12 * system_rhs.l2_norm());
     SolverCG<Vector<double>>              cg (solver_control);
 
-    // Using ILU as it works best
-    SparseILU<double> preconditioner;
-    preconditioner.initialize(mass_matrix);
+    // SparseILU<double> preconditioner;
+    // preconditioner.initialize(stiffness_matrix);
     // PreconditionJacobi<SparseMatrix<double>> preconditioner;
-    // preconditioner.initialize(mass_matrix);
+    // preconditioner.initialize(stiffness_matrix);
 
     // cg.solve takes solution as initial guess
-    cg.solve(mass_matrix, solution, system_rhs, preconditioner);
-    // cg.solve(mass_matrix, solution, system_rhs, PreconditionIdentity());
+    // cg.solve(stiffness_matrix, solution, system_rhs, preconditioner);
+    cg.solve(stiffness_matrix, solution, system_rhs, PreconditionIdentity());
     niteration = solver_control.last_step();
 }
 
@@ -280,8 +281,8 @@ void Projection<dim>::run(std::vector<int> &ncell,
 int main ()
 {
     deallog.depth_console (0);
-    unsigned int nrefine = 10;
-    // unsigned int nrefine = 4;
+    // unsigned int nrefine = 10;
+    unsigned int nrefine = 4;
     unsigned int degree = 1;
 
     Projection<2> problem (nrefine, degree);
