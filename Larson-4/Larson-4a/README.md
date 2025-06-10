@@ -1,4 +1,4 @@
-# $L^2$ Projection
+# Poisson Equation
 This folder contains the implementation of finding solution Poisson's equation which is describe in chapter 4 of the book. The problem solved is:
 
 \begin{align*}
@@ -6,9 +6,11 @@ This folder contains the implementation of finding solution Poisson's equation w
   u &= 0 \quad \text{on } \partial\Omega,
 \end{align*}
 
+
+
 where:
-- \(\Omega\) is the computational domain (typically 2D),
-- \(f\) is a given source term.
+- $\Omega$ is the computational domain (typically 2D),
+- $f$ is a given source term.
 
 Steps to run
 
