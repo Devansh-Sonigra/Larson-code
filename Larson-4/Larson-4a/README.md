@@ -1,12 +1,10 @@
 # $L^2$ Projection
 This folder contains the implementation of finding solution Poisson's equation which is describe in chapter 4 of the book. The problem solved is:
 
-\[
-- \Delta u = f \quad \text{in } \Omega,
-\]
-\[
-u = 0 \quad \text{on } \partial\Omega,
-\]
+\begin{align*}
+  -\Delta u &= f \quad \text{in } \Omega,\\
+  u &= 0 \quad \text{on } \partial\Omega,
+\end{align*}
 
 where:
 - \(\Omega\) is the computational domain (typically 2D),
