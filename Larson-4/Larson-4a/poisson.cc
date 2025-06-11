@@ -23,7 +23,7 @@
 
 #include <iostream>
 #include <fstream>
-#include <cmat>
+#include <cmath>
 
 using namespace dealii;
 
@@ -43,9 +43,7 @@ template<>
 double ExactSolution<2>::value (const Point<2> &p,
                                 const unsigned int /*component*/) const
 {
-    //    return p[0] * p[0] + p[1] *p[1];
-    //   return p[0] + p[1];
-    return sin(p[0] * p[1]);
+    return p[0] * (1 - p[0]) * p[1] * ( 1 - p[1]);
 }
 
 
@@ -53,9 +51,7 @@ template<>
 double ExactSolution<3>::value (const Point<3> &p,
                                 const unsigned int /*component*/) const
 {
-    return p[0] * p[0] + p[1] * p[1] + p[2] * p[2];
-    //   return p[0] + p[1];
-    // return sin(p[0] * p[1]);
+    return p[0] * (1 - p[0]) * p[1] * ( 1 - p[1]) * p[2] * (1 - p[2]);
 }
 
 template<>
@@ -63,16 +59,8 @@ Tensor<1, 2> ExactSolution<2>::gradient (const Point<2>   &p,
                                          const unsigned int) const
 {
     Tensor<1, 2> values;
-    //    values[0] = 2 * p[0];
-    //    values[1] = 2 * p[1];
-    //    return values;
-
-    //    values[0] = 1;
-    //    values[1] = 1;
-    //    return values;
-
-    values[0] = p[1] * cos(p[0] * p[1]);
-    values[1] = p[0] * cos(p[0] * p[1]);
+    values[0] = (1 - 2 * p[0]) *  p[1] * ( 1 - p[1]);
+    values[1] = p[0] * (1 - p[0])  * ( 1 - 2 * p[1]);
     return values;
 }
 
@@ -82,32 +70,51 @@ Tensor<1, 3> ExactSolution<3>::gradient (const Point<3>   &p,
                                          const unsigned int) const
 {
     Tensor<1, 3> values;
-    values[0] = 2 * p[0];
-    values[1] = 2 * p[1];
-    values[2] = 2 * p[2];
+    values[0] = (1 - 2 * p[0]) *  p[1] * ( 1 - p[1]) * p[2] * (1 - p[2]);
+    values[1] = p[0] * (1 - p[0])  * ( 1 - 2 * p[1]) * p[2] * (1 - p[2]);
+    values[2] = p[0] * (1 - p[0]) * p[1] * ( 1 - p[1]) * ( 1 - 2 * p[2]);
     return values;
-
-    //    values[0] = 1;
-    //    values[1] = 1;
-    //    return values;
-
-    // values[0] = p[1] * cos(p[0] * p[1]);
-    // values[1] = p[0] * cos(p[0] * p[1]);
-    // return values;
 }
 
 template<int dim>
-class PoissonSolver {
-    public:
-      PoissonSolver( unsigned int nrefine, unsigned int degree);
-      void run(std::vector<int> &ncell,
-               std::vector<int> &ndofs,
-               std::vector<double> &L2_error,
-               std::vector<double> &H1_error,
-               std::vector<int> &niterations);
+class RHS_function : public Function<dim>
+{
+public:
+    RHS_function () : Function<dim>() {}
 
-    private:
-      void make_grid_and_dofs();
+    double value (const Point<dim>   &p,
+                  const unsigned int  component = 0) const override;
+};
+
+template<>
+double RHS_function<2>::value (const Point<2> &p,
+                               const unsigned int /*component*/) const
+{
+    return 2 * ( p[0] + p[1] - p[0] * p[0] - p[1] * p[1]);
+}
+
+
+template<>
+double RHS_function<3>::value (const Point<3> &p,
+                               const unsigned int /*component*/) const
+{
+    return 2 * (p[1] * ( 1 - p[1] ) * p[2] * (1 - p[2]) + p[0] *
+                ( 1 - p[0] ) * p[1] * (1 - p[1]) + p[0] * ( 1 - p[0] ) * p[2] * (1 - p[2]) );
+}
+
+template<int dim>
+class PoissonSolver
+{
+public:
+    PoissonSolver( unsigned int nrefine, unsigned int degree);
+    void run(std::vector<int> &ncell,
+             std::vector<int> &ndofs,
+             std::vector<double> &L2_error,
+             std::vector<double> &H1_error,
+             std::vector<int> &niterations);
+
+private:
+    void make_grid_and_dofs();
     void setup_system();
     void assemble_system();
     void solve(int &niteration);
@@ -129,15 +136,16 @@ class PoissonSolver {
 
 template<int dim>
 PoissonSolver<dim>::PoissonSolver( unsigned int nrefine, unsigned int degree):
-    nrefine(nerefine),
+    nrefine(nrefine),
     fe(degree),
     mapping(FE_SimplexP<dim>(1)),
     dof_handler(triangulation)
 {}
 
 template<int dim>
-void Projection<dim>::make_grid_and_dofs()
+void PoissonSolver<dim>::make_grid_and_dofs()
 {
+    // std::cout << "make grid " << std::endl;
     Triangulation<dim> tria;
     GridGenerator::hyper_cube(tria);
     //  tria.refine_global(1);
@@ -147,8 +155,9 @@ void Projection<dim>::make_grid_and_dofs()
 }
 
 template<int dim>
-void Projection<dim>::setup_system()
+void PoissonSolver<dim>::setup_system()
 {
+    // std::cout << "setup system " << std::endl;
     dof_handler.distribute_dofs(fe);
 
     DynamicSparsityPattern dsp(dof_handler.n_dofs());
@@ -163,8 +172,9 @@ void Projection<dim>::setup_system()
 
 
 template<int dim>
-void Projection<dim>::assemble_system()
+void PoissonSolver<dim>::assemble_system()
 {
+    // std::cout << "Solver " << std::endl;
     stiffness_matrix = 0;
     system_rhs = 0;
 
@@ -193,8 +203,8 @@ void Projection<dim>::assemble_system()
             float temp = rhs_function.value(fe_values.quadrature_point(q_point));
             for (unsigned int i = 0; i < dofs_per_cell ; ++i) {
                 for (unsigned int j = 0; j < dofs_per_cell; ++j) {
-                    cell_matrix(i, j) += fe_values.shape_grad(i,
-                                                               q_point) * fe_values.shape_grad(j, q_point) * fe_values.JxW(q_point);
+                    cell_matrix(i, j) += fe_values.shape_grad(i, q_point) * fe_values.shape_grad(j,
+                                         q_point) * fe_values.JxW(q_point);
                 }
                 cell_rhs(i) += temp * fe_values.shape_value(i,
                                                             q_point) * fe_values.JxW(q_point);
@@ -204,17 +214,31 @@ void Projection<dim>::assemble_system()
         cell->get_dof_indices(local_dof_indices);
         for (unsigned int i = 0; i < dofs_per_cell ; ++i) {
             for (unsigned int j = 0; j < dofs_per_cell; ++j) {
-                stiffness_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i, j));
+                stiffness_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i,
+                                     j));
             }
             system_rhs(local_dof_indices[i]) += cell_rhs(i);
         }
 
     }
+
+    // boundary condition
+    std::map<unsigned int, double> boundary_values;
+    VectorTools::interpolate_boundary_values (mapping,
+                                              dof_handler,
+                                              0,
+                                              ExactSolution<dim>(),
+                                              boundary_values);
+    MatrixTools::apply_boundary_values (boundary_values,
+                                        stiffness_matrix,
+                                        solution,
+                                        system_rhs);
 }
 
 template<int dim>
-void Projection<dim>::solve(int &niteration)
+void PoissonSolver<dim>::solve(int &niteration)
 {
+    // std::cout << "Solver " << std::endl;
     SolverControl           solver_control (1000, 1e-12 * system_rhs.l2_norm());
     SolverCG<Vector<double>>              cg (solver_control);
 
@@ -230,8 +254,9 @@ void Projection<dim>::solve(int &niteration)
 }
 
 template<int dim>
-void Projection<dim>::compute_error(double &L2_error, double &H1_error)
+void PoissonSolver<dim>::compute_error(double &L2_error, double &H1_error)
 {
+    // std::cout << "Error ";
     ExactSolution<dim> exact_solution;
 
     Vector<double> difference_per_cell (triangulation.n_active_cells());
@@ -249,20 +274,21 @@ void Projection<dim>::compute_error(double &L2_error, double &H1_error)
 }
 
 template<int dim>
-void Projection<dim>::refine_grid()
+void PoissonSolver<dim>::refine_grid()
 {
     triangulation.refine_global(1);
 }
 
 template<int dim>
-void Projection<dim>::run(std::vector<int> &ncell,
-                          std::vector<int> &ndofs,
-                          std::vector<double> &L2_error,
-                          std::vector<double> &H1_error,
-                          std::vector<int> &niterations)
+void PoissonSolver<dim>::run(std::vector<int> &ncell,
+                             std::vector<int> &ndofs,
+                             std::vector<double> &L2_error,
+                             std::vector<double> &H1_error,
+                             std::vector<int> &niterations)
 {
     for (unsigned int n = 0; n < nrefine; ++n) {
         if (n == 0) {
+            // std::cout << "hello " << std::endl;
             make_grid_and_dofs();
         } else {
             refine_grid();
@@ -282,12 +308,14 @@ int main ()
 {
     deallog.depth_console (0);
     // unsigned int nrefine = 10;
-    unsigned int nrefine = 4;
+    unsigned int nrefine = 7;
     unsigned int degree = 1;
 
-    Projection<2> problem (nrefine, degree);
+    // std::cout << "hello " << std::endl;
+    PoissonSolver<2> problem (nrefine, degree);
     std::vector<int> ncell(nrefine), ndofs(nrefine), niterations(nrefine);
     std::vector<double> L2_error(nrefine), H1_error(nrefine);
+    // std::cout << "hello " << std::endl;
     problem.run (ncell, ndofs, L2_error, H1_error, niterations);
     ConvergenceTable  convergence_table;
     for (unsigned int n = 0; n < nrefine; ++n) {
