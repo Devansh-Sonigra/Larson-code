@@ -467,7 +467,7 @@ int main ()
     std::cout << std::endl;
     convergence_table.write_text(std::cout);
 
-    std::ofstream error_table_file("error_identity.tex");
+    std::ofstream error_table_file("error.tex");
     convergence_table.write_tex(error_table_file);
 
     return 0;
