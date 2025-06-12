@@ -280,7 +280,7 @@ void Solver<dim>::assemble_system()
                              update_JxW_values);
 
     QGaussSimplex<dim - 1> face_quadrature_formula(fe.degree + 1);
-    FEValues<dim> face_fe_values(mapping, fe, face_quadrature_formula,
+    FEFaceValues<dim> face_fe_values(mapping, fe, face_quadrature_formula,
                              update_values | update_gradients | update_quadrature_points |
                              update_JxW_values);
 
@@ -319,20 +319,18 @@ void Solver<dim>::assemble_system()
         }
 
         for(unsigned int f=0; f<GeometryInfo<dim>::faces_per_cell; ++f) {
-            fe_face_values.reinit(cell, f);
+            face_fe_values.reinit(cell, f);
             if (cell->face(f)->boundary_id() == 0) {
-                for (unsigned int q_point=0; q_point<n_face_q_points; ++q_point)
+                for (unsigned int q_point=0; q_point<face_n_q_points; ++q_point)
                 {
                     const double kappa_value = kap.value(face_fe_values.quadrature_point(q_point));
-                    const double g_dir_value = g_dir_value(face_fe_values.quadrature_point(q_point));
-                    const double g_neu_value = g_neu_value(face_fe_values.quadrature_point(q_point));
+                    const double g_dir_value = g_dir.value(face_fe_values.quadrature_point(q_point));
+                    const double g_neu_value = g_neu.value(face_fe_values.quadrature_point(q_point));
 
                     for (unsigned int i=0; i<dofs_per_cell; ++i) {
-                        cell_rhs(i) += (( kappa_value * g_dir_value + g_neu_value)
-                                fe_face_values.shape_value(i, q_point) *
-                                fe_face_values.JxW(q_point));
+                        cell_rhs(i) += (( kappa_value * g_dir_value + g_neu_value) * face_fe_values.shape_value(i, q_point) * face_fe_values.JxW(q_point));
                         for (unsigned int j = 0; j<dofs_per_cell; ++j) {
-                            cell_matrix(i ,j) += kappa_value * fe_face_values.shape_value(i, q_point) * fe_face_values.shape_value(j, q_point) * fe_face_values.JxW(q_point);
+                            cell_matrix(i ,j) += kappa_value * face_fe_values.shape_value(i, q_point) * face_fe_values.shape_value(j, q_point) * face_fe_values.JxW(q_point);
                         }
                     }
 
