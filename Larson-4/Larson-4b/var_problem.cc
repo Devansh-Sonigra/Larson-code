@@ -4,6 +4,7 @@
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
 #include <deal.II/fe/fe_simplex_p.h>
+#include <deal.II/fe/fe_values.h>
 #include <deal.II/fe/mapping_fe.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/matrix_tools.h>
@@ -103,69 +104,80 @@ double RHS_function<3>::value (const Point<3> &p,
 }
 
 template<int dim>
-class coeff_function: public Function<dim> {
-    public:
-      coeff_function() : Function<dim>() {}
+class coeff_function: public Function<dim>
+{
+public:
+    coeff_function() : Function<dim>() {}
     double value( const Point<dim> &p,
-          const unsigned int component = 0) const override;  
+                  const unsigned int component = 0) const override;
 };
 
 template<>
-double coeff_function<2>::value( const Point<2> &p, const unsigned int ) const {
-    return 1.0;  
+double coeff_function<2>::value( const Point<2> &p, const unsigned int ) const
+{
+    return 1.0;
 }
 
 template<>
-double coeff_function<3>::value( const Point<3> &p, const unsigned int ) const {
-    return 1.0;  
+double coeff_function<3>::value( const Point<3> &p, const unsigned int ) const
+{
+    return 1.0;
 }
 
 template<int dim>
-class kappa: public Function<dim> {
-    public:
-      kappa() : Function<dim>() {}
+class kappa: public Function<dim>
+{
+public:
+    kappa() : Function<dim>() {}
     double value( const Point<dim> &p,
-          const unsigned int component = 0) const override;  
+                  const unsigned int component = 0) const override;
 };
 
 template<>
-double kappa<2>::value( const Point<2> &p, const unsigned int ) const {
-    return 0.0;  
+double kappa<2>::value( const Point<2> &p, const unsigned int ) const
+{
+    return 0.0;
 }
 
 template<>
-double kappa<3>::value( const Point<3> &p, const unsigned int ) const {
-    return 0.0;  
+double kappa<3>::value( const Point<3> &p, const unsigned int ) const
+{
+    return 0.0;
 }
 
 template<int dim>
-class G_Dirichlet: public Function<dim> {
-    public:
-      G_Dirichlet() : Function<dim>() {}
+class G_Dirichlet: public Function<dim>
+{
+public:
+    G_Dirichlet() : Function<dim>() {}
     double value( const Point<dim> &p,
-          const unsigned int component = 0) const override;  
+                  const unsigned int component = 0) const override;
 };
 
 template<>
-double G_Dirichlet<2>::value( const Point<2> &p, const unsigned int ) const {
-    return 0.0;  
+double G_Dirichlet<2>::value( const Point<2> &p, const unsigned int ) const
+{
+    return 0.0;
 }
 
 template<>
-double G_Dirichlet<3>::value( const Point<3> &p, const unsigned int ) const {
-    return 0.0;  
+double G_Dirichlet<3>::value( const Point<3> &p, const unsigned int ) const
+{
+    return 0.0;
 }
 
 template<int dim>
-class G_Neumann: public Function<dim> {
-    public:
-      G_Neumann() : Function<dim>() {}
+class G_Neumann: public Function<dim>
+{
+public:
+    G_Neumann() : Function<dim>() {}
     double value( const Point<dim> &p,
-          const unsigned int component = 0) const override;  
+                  const unsigned int component = 0) const override;
 };
 
 template<>
-double G_Neumann<2>::value( const Point<2> &p, const unsigned int ) const {
+double G_Neumann<2>::value( const Point<2> &p, const unsigned int ) const
+{
     if (p[0] == 0) {
         return -p[0] * (1 - p[0])  * ( 1 - 2 * p[1]);
     } else if (p[0] == 1) {
@@ -178,7 +190,8 @@ double G_Neumann<2>::value( const Point<2> &p, const unsigned int ) const {
 }
 
 template<>
-double G_Neumann<3>::value( const Point<3> &p, const unsigned int ) const {
+double G_Neumann<3>::value( const Point<3> &p, const unsigned int ) const
+{
     if (p[0] == 0 ) {
         return -(1 - 2 * p[0]) *  p[1] * ( 1 - p[1]) * p[2] * (1 - p[2]);
     } else if (p[0] == 1) {
@@ -240,7 +253,6 @@ Solver<dim>::Solver( unsigned int nrefine, unsigned int degree):
 template<int dim>
 void Solver<dim>::make_grid_and_dofs()
 {
-    // std::cout << "make grid " << std::endl;
     Triangulation<dim> tria;
     GridGenerator::hyper_cube(tria);
     //  tria.refine_global(1);
@@ -252,7 +264,6 @@ void Solver<dim>::make_grid_and_dofs()
 template<int dim>
 void Solver<dim>::setup_system()
 {
-    // std::cout << "setup system " << std::endl;
     dof_handler.distribute_dofs(fe);
 
     DynamicSparsityPattern dsp(dof_handler.n_dofs());
@@ -269,7 +280,6 @@ void Solver<dim>::setup_system()
 template<int dim>
 void Solver<dim>::assemble_system()
 {
-    // std::cout << "Solver " << std::endl;
     system_matrix = 0;
     system_rhs = 0;
 
@@ -279,10 +289,10 @@ void Solver<dim>::assemble_system()
                              update_values | update_gradients | update_quadrature_points |
                              update_JxW_values);
 
-    QGaussSimplex<dim - 1> face_quadrature_formula(fe.degree + 1);
+    QGaussSimplex < dim - 1 > face_quadrature_formula(fe.degree + 1);
     FEFaceValues<dim> face_fe_values(mapping, fe, face_quadrature_formula,
-                             update_values | update_gradients | update_quadrature_points |
-                             update_JxW_values);
+                                     update_values | update_normal_vectors | update_quadrature_points |
+                                     update_JxW_values);
 
 
 
@@ -307,42 +317,48 @@ void Solver<dim>::assemble_system()
         cell_rhs = 0;
 
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
-            // const double temp = exact_solution.value(fe_values.quadrature_point(q_point));
-            const double rhs_value = rhs_function.value(fe_values.quadrature_point(q_point));
+            const double rhs_value = rhs_function.value(fe_values.quadrature_point(
+                                                            q_point));
             const double a_value = coeff_a.value(fe_values.quadrature_point(q_point));
             for (unsigned int i = 0; i < dofs_per_cell ; ++i) {
                 for (unsigned int j = 0; j < dofs_per_cell; ++j) {
-                    cell_matrix(i, j) +=  a_value * fe_values.shape_grad(i, q_point) * fe_values.shape_grad(j, q_point) * fe_values.JxW(q_point);
+                    cell_matrix(i, j) +=  a_value * fe_values.shape_grad(i,
+                                                                         q_point) * fe_values.shape_grad(j, q_point) * fe_values.JxW(q_point);
                 }
-                cell_rhs(i) += rhs_value * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point);
+                cell_rhs(i) += rhs_value * fe_values.shape_value(i,
+                                                                 q_point) * fe_values.JxW(q_point);
             }
         }
 
-        for(unsigned int f=0; f<GeometryInfo<dim>::faces_per_cell; ++f) {
+        for (unsigned int f = 0; f < cell->n_faces(); ++f) {
             face_fe_values.reinit(cell, f);
-            if (cell->face(f)->boundary_id() == 0) {
-                for (unsigned int q_point=0; q_point<face_n_q_points; ++q_point)
-                {
+            if (cell->face(f)->at_boundary()) {
+                for (unsigned int q_point = 0; q_point < face_n_q_points; ++q_point) {
                     const double kappa_value = kap.value(face_fe_values.quadrature_point(q_point));
-                    const double g_dir_value = g_dir.value(face_fe_values.quadrature_point(q_point));
-                    const double g_neu_value = g_neu.value(face_fe_values.quadrature_point(q_point));
+                    const double g_dir_value = g_dir.value(face_fe_values.quadrature_point(
+                                                               q_point));
+                    const double g_neu_value = g_neu.value(face_fe_values.quadrature_point(
+                                                               q_point));
 
-                    for (unsigned int i=0; i<dofs_per_cell; ++i) {
-                        cell_rhs(i) += (( kappa_value * g_dir_value + g_neu_value) * face_fe_values.shape_value(i, q_point) * face_fe_values.JxW(q_point));
-                        for (unsigned int j = 0; j<dofs_per_cell; ++j) {
-                            cell_matrix(i ,j) += kappa_value * face_fe_values.shape_value(i, q_point) * face_fe_values.shape_value(j, q_point) * face_fe_values.JxW(q_point);
+                    for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+                        cell_rhs(i) += (( kappa_value * g_dir_value + g_neu_value) *
+                                        face_fe_values.shape_value(i, q_point) * face_fe_values.JxW(q_point));
+                        for (unsigned int j = 0; j < dofs_per_cell; ++j) {
+                            cell_matrix(i, j) += kappa_value * face_fe_values.shape_value(i,
+                                                 q_point) * face_fe_values.shape_value(j,
+                                                                                       q_point) * face_fe_values.JxW(q_point);
                         }
                     }
 
                 }
             }
-         }
+        }
 
         cell->get_dof_indices(local_dof_indices);
         for (unsigned int i = 0; i < dofs_per_cell ; ++i) {
             for (unsigned int j = 0; j < dofs_per_cell; ++j) {
                 system_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i,
-                                     j));
+                                  j));
             }
             system_rhs(local_dof_indices[i]) += cell_rhs(i);
         }
@@ -352,14 +368,14 @@ void Solver<dim>::assemble_system()
 template<int dim>
 void Solver<dim>::solve(int &niteration)
 {
-    // std::cout << "Solver " << std::endl;
     SolverControl           solver_control (1000, 1e-12 * system_rhs.l2_norm());
     SolverGMRES<Vector<double>>              cg (solver_control);
+    // SolverCG<Vector<double>>              cg (solver_control);
 
-    SparseILU<double> preconditioner;
-    preconditioner.initialize(system_matrix);
-    // PreconditionJacobi<SparseMatrix<double>> preconditioner;
+    // SparseILU<double> preconditioner;
     // preconditioner.initialize(system_matrix);
+    PreconditionJacobi<SparseMatrix<double>> preconditioner;
+    preconditioner.initialize(system_matrix);
 
     // cg.solve takes solution as initial guess
     cg.solve(system_matrix, solution, system_rhs, preconditioner);
@@ -370,7 +386,6 @@ void Solver<dim>::solve(int &niteration)
 template<int dim>
 void Solver<dim>::compute_error(double &L2_error, double &H1_error)
 {
-    // std::cout << "Error ";
     ExactSolution<dim> exact_solution;
 
     Vector<double> difference_per_cell (triangulation.n_active_cells());
@@ -395,14 +410,13 @@ void Solver<dim>::refine_grid()
 
 template<int dim>
 void Solver<dim>::run(std::vector<int> &ncell,
-                             std::vector<int> &ndofs,
-                             std::vector<double> &L2_error,
-                             std::vector<double> &H1_error,
-                             std::vector<int> &niterations)
+                      std::vector<int> &ndofs,
+                      std::vector<double> &L2_error,
+                      std::vector<double> &H1_error,
+                      std::vector<int> &niterations)
 {
     for (unsigned int n = 0; n < nrefine; ++n) {
         if (n == 0) {
-            // std::cout << "hello " << std::endl;
             make_grid_and_dofs();
         } else {
             refine_grid();
@@ -425,15 +439,12 @@ int main ()
     unsigned int nrefine = 7;
     unsigned int degree = 1;
 
-    // std::cout << "hello " << std::endl;
     Solver<2> problem (nrefine, degree);
     std::vector<int> ncell(nrefine), ndofs(nrefine), niterations(nrefine);
     std::vector<double> L2_error(nrefine), H1_error(nrefine);
-    // std::cout << "hello " << std::endl;
     problem.run (ncell, ndofs, L2_error, H1_error, niterations);
     ConvergenceTable  convergence_table;
     for (unsigned int n = 0; n < nrefine; ++n) {
-        // std::cout<< n << std::endl;
         convergence_table.add_value("cells", ncell[n]);
         convergence_table.add_value("dofs",  ndofs[n]);
         convergence_table.add_value("iterations",  niterations[n]);
