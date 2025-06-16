@@ -8,6 +8,7 @@
 #include <deal.II/fe/mapping_fe.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/matrix_tools.h>
+#include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/error_estimator.h>
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/full_matrix.h>
@@ -44,7 +45,8 @@ template<>
 double ExactSolution<2>::value (const Point<2> &p,
                                 const unsigned int /*component*/) const
 {
-    return p[0] * (1 - p[0]) * p[1] * ( 1 - p[1]);
+    // return p[0] * (1 - p[0]) * p[1] * ( 1 - p[1]);
+    return p[0] * p[1];
 }
 
 
@@ -52,7 +54,8 @@ template<>
 double ExactSolution<3>::value (const Point<3> &p,
                                 const unsigned int /*component*/) const
 {
-    return p[0] * (1 - p[0]) * p[1] * ( 1 - p[1]) * p[2] * (1 - p[2]);
+    // return p[0] * (1 - p[0]) * p[1] * ( 1 - p[1]) * p[2] * (1 - p[2]);
+    return p[0] * p[1] * p[2];
 }
 
 template<>
@@ -60,8 +63,10 @@ Tensor<1, 2> ExactSolution<2>::gradient (const Point<2>   &p,
                                          const unsigned int) const
 {
     Tensor<1, 2> values;
-    values[0] = (1 - 2 * p[0]) *  p[1] * ( 1 - p[1]);
-    values[1] = p[0] * (1 - p[0])  * ( 1 - 2 * p[1]);
+    // values[0] = (1 - 2 * p[0]) *  p[1] * ( 1 - p[1]);
+    // values[1] = p[0] * (1 - p[0])  * ( 1 - 2 * p[1]);
+    values[0] = p[1];
+    values[1] = p[0];
     return values;
 }
 
@@ -71,9 +76,12 @@ Tensor<1, 3> ExactSolution<3>::gradient (const Point<3>   &p,
                                          const unsigned int) const
 {
     Tensor<1, 3> values;
-    values[0] = (1 - 2 * p[0]) *  p[1] * ( 1 - p[1]) * p[2] * (1 - p[2]);
-    values[1] = p[0] * (1 - p[0])  * ( 1 - 2 * p[1]) * p[2] * (1 - p[2]);
-    values[2] = p[0] * (1 - p[0]) * p[1] * ( 1 - p[1]) * ( 1 - 2 * p[2]);
+    // values[0] = (1 - 2 * p[0]) *  p[1] * ( 1 - p[1]) * p[2] * (1 - p[2]);
+    // values[1] = p[0] * (1 - p[0])  * ( 1 - 2 * p[1]) * p[2] * (1 - p[2]);
+    // values[2] = p[0] * (1 - p[0]) * p[1] * ( 1 - p[1]) * ( 1 - 2 * p[2]);
+    values[0] = p[1] * p[2];
+    values[1] = p[0] * p[2];
+    values[2] = p[0] * p[1];
     return values;
 }
 
@@ -91,7 +99,8 @@ template<>
 double RHS_function<2>::value (const Point<2> &p,
                                const unsigned int /*component*/) const
 {
-    return 2 * ( p[0] + p[1] - p[0] * p[0] - p[1] * p[1]);
+    // return 2 * ( p[0] + p[1] - p[0] * p[0] - p[1] * p[1]);
+    return 0.0;
 }
 
 
@@ -99,8 +108,9 @@ template<>
 double RHS_function<3>::value (const Point<3> &p,
                                const unsigned int /*component*/) const
 {
-    return 2 * (p[1] * ( 1 - p[1] ) * p[2] * (1 - p[2]) + p[0] *
-                ( 1 - p[0] ) * p[1] * (1 - p[1]) + p[0] * ( 1 - p[0] ) * p[2] * (1 - p[2]) );
+    // return 2 * (p[1] * ( 1 - p[1] ) * p[2] * (1 - p[2]) + p[0] *
+    //             ( 1 - p[0] ) * p[1] * (1 - p[1]) + p[0] * ( 1 - p[0] ) * p[2] * (1 - p[2]) );
+    return 0.0;
 }
 
 template<int dim>
@@ -178,32 +188,54 @@ public:
 template<>
 double G_Neumann<2>::value( const Point<2> &p, const unsigned int ) const
 {
+    // if (p[0] == 0) {
+    //     return -p[0] * (1 - p[0])  * ( 1 - 2 * p[1]);
+    // } else if (p[0] == 1) {
+    //     return  p[0] * (1 - p[0])  * ( 1 - 2 * p[1]);
+    // } else if (p[1] == 0) {
+    //     return -(1 - 2 * p[0]) *  p[1] * ( 1 - p[1]);
+    // } else {
+    //     return (1 - 2 * p[0]) *  p[1] * ( 1 - p[1]);
+    // }
     if (p[0] == 0) {
-        return -p[0] * (1 - p[0])  * ( 1 - 2 * p[1]);
+        return -p[1];
     } else if (p[0] == 1) {
-        return  p[0] * (1 - p[0])  * ( 1 - 2 * p[1]);
+        return  p[1];
     } else if (p[1] == 0) {
-        return -(1 - 2 * p[0]) *  p[1] * ( 1 - p[1]);
+        return -p[0];
     } else {
-        return (1 - 2 * p[0]) *  p[1] * ( 1 - p[1]);
+        return p[0];
     }
 }
 
 template<>
 double G_Neumann<3>::value( const Point<3> &p, const unsigned int ) const
 {
+    // if (p[0] == 0 ) {
+    //     return -(1 - 2 * p[0]) *  p[1] * ( 1 - p[1]) * p[2] * (1 - p[2]);
+    // } else if (p[0] == 1) {
+    //     return  (1 - 2 * p[0]) *  p[1] * ( 1 - p[1]) * p[2] * (1 - p[2]);
+    // } else if (p[1] == 0) {
+    //     return -p[0] * (1 - p[0])  * ( 1 - 2 * p[1]) * p[2] * (1 - p[2]);
+    // } else if (p[1] == 1) {
+    //     return p[0] * (1 - p[0])  * ( 1 - 2 * p[1]) * p[2] * (1 - p[2]);
+    // } else if (p[2] == 0) {
+    //     return -  p[0] * (1 - p[0]) * p[1] * ( 1 - p[1]) * ( 1 - 2 * p[2]);
+    // } else {
+    //     return p[0] * (1 - p[0]) * p[1] * ( 1 - p[1]) * ( 1 - 2 * p[2]);
+    // }
     if (p[0] == 0 ) {
-        return -(1 - 2 * p[0]) *  p[1] * ( 1 - p[1]) * p[2] * (1 - p[2]);
+        return - p[1] * p[2];
     } else if (p[0] == 1) {
-        return  (1 - 2 * p[0]) *  p[1] * ( 1 - p[1]) * p[2] * (1 - p[2]);
+        return  p[1] * p[2];
     } else if (p[1] == 0) {
-        return -p[0] * (1 - p[0])  * ( 1 - 2 * p[1]) * p[2] * (1 - p[2]);
+        return - p[0] * p[2];
     } else if (p[1] == 1) {
-        return p[0] * (1 - p[0])  * ( 1 - 2 * p[1]) * p[2] * (1 - p[2]);
+        return p[0] * p[2];
     } else if (p[2] == 0) {
-        return -  p[0] * (1 - p[0]) * p[1] * ( 1 - p[1]) * ( 1 - 2 * p[2]);
+        return - p[0] * p[1];
     } else {
-        return p[0] * (1 - p[0]) * p[1] * ( 1 - p[1]) * ( 1 - 2 * p[2]);
+        return p[0] * p[1];
     }
 }
 
@@ -226,6 +258,7 @@ private:
     void setup_system();
     void assemble_system();
     void solve(int &niteration);
+    void output_results();
     void compute_error(double &L2_error, double &H1_error);
     void refine_grid();
 
@@ -370,17 +403,28 @@ void Solver<dim>::solve(int &niteration)
 {
     SolverControl           solver_control (1000, 1e-12 * system_rhs.l2_norm());
     SolverGMRES<Vector<double>>              cg (solver_control);
-    // SolverCG<Vector<double>>              cg (solver_control);
 
-    // SparseILU<double> preconditioner;
-    // preconditioner.initialize(system_matrix);
-    PreconditionJacobi<SparseMatrix<double>> preconditioner;
+    SparseILU<double> preconditioner;
     preconditioner.initialize(system_matrix);
+    // PreconditionJacobi<SparseMatrix<double>> preconditioner;
+    // preconditioner.initialize(system_matrix);
 
     // cg.solve takes solution as initial guess
     cg.solve(system_matrix, solution, system_rhs, preconditioner);
     // cg.solve(system_matrix, solution, system_rhs, PreconditionIdentity());
     niteration = solver_control.last_step();
+}
+
+template <int dim>
+void Solver<dim>::output_results ()
+{
+   DataOut<dim> data_out;
+   data_out.attach_dof_handler (dof_handler);
+   data_out.add_data_vector (solution, "solution");
+   data_out.build_patches (fe.degree);
+   std::string fname = "solution-" + Utilities::int_to_string(nrefine,2)+".vtu";
+   std::ofstream output (fname);
+   data_out.write_vtu (output);
 }
 
 template<int dim>
@@ -425,6 +469,7 @@ void Solver<dim>::run(std::vector<int> &ncell,
         setup_system();
         assemble_system();
         solve(niterations[n]);
+        output_results();
         compute_error(L2_error[n], H1_error[n]);
 
         ncell[n] = triangulation.n_active_cells();
