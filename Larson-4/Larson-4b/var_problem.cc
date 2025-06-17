@@ -190,7 +190,7 @@ double G_Neumann<3>::value( const Point<3> &p, const unsigned int ) const
 {
     if (p[0] == 0 || p[0] == 1) {
         return - p[1] * ( 1- p[1]) * p[2] * ( 1 - p[2])- 1;
-    } else if (p[1] == 0 || p[1] == 1{
+    } else if (p[1] == 0 || p[1] == 1){
         return - p[0] * ( 1- p[0]) * p[2] * ( 1 - p[2])- 1;
     } else {
         return - p[0] * ( 1- p[0]) * p[1] * ( 1 - p[1])- 1;
