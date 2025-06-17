@@ -19,7 +19,7 @@ First we change naca.geo file to naca.msh so that we can import it in deal.ii Th
 gmsh -2 -format msh2 naca.geo -o naca.msh
 ```
 
-Now to compile, rune the following command
+Now to compile, run the following command
 ```bash
 cmake .
 make
