@@ -14,15 +14,14 @@ where:
 
 Steps to run
 
+First we change naca.geo file to naca.msh so that we can import it in deal.ii The code for the following is
+```bash
+gmsh -2 -format msh2 naca.geo -o naca.msh
+```
+
+Now to compile, rune the following command
 ```bash
 cmake .
 make
 ./var_problem
-```
-
-After running, the numerical error will be written to a LaTeX file named error.tex.
-
-To compile it to PDF:
-```bash
-pdflatex error.tex
 ```
