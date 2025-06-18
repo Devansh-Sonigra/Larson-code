@@ -44,7 +44,7 @@ double ExactSolution<2>::value (const Point<2> &p,
                                 const unsigned int /*component*/) const
 {
     // return p[0] * (1 - p[0]) * p[1] * ( 1 - p[1]);
-    return p[0] * p[0] + p[1] * p[1];
+    return p[0] * p[0] + p[1] * p[1] - 2.0/3.0;
 }
 
 
@@ -118,15 +118,26 @@ public:
 template<>
 double G_Neumann<2>::value( const Point<2> &p, const unsigned int ) const
 {
-    if (p[0] == 0) {
+    // if (p[0] == 0) {
+    //     return 0.0;
+    // } else if (p[0] == 1) {
+    //     return -1.0;
+    // } else if (p[1] == 0) {
+    //     return 0.0;
+    // } else {
+    //     return -1.0;
+    // }
+    const double tol = 1e-12;
+    if (std::abs(p[0]) < tol) {
         return 0.0;
-    } else if (p[0] == 1) {
-        return -1.0;
-    } else if (p[1] == 0) {
+    } else if (std::abs(p[0] - 1.0) < tol) {
+        return 2.0;
+    } else if (std::abs(p[1]) < tol) {
         return 0.0;
     } else {
-        return -1.0;
+        return 2.0;
     }
+
 }
 
 template<>
@@ -197,9 +208,9 @@ void NeumannSolver<dim>::setup_system()
     DynamicSparsityPattern dsp_dofs(dof_handler.n_dofs());
     DoFTools::make_sparsity_pattern(dof_handler, dsp_dofs);
 
-    for(unsigned int i = 0; i < dof_handler.n_dofs() + 1; ++i) {
-        for (j = 0; j < dof_handler.n_dofs() + 1; ++j) {
-            if (dsp_dofs.is_nonzero(i, j)) {
+    for(unsigned int i = 0; i < dof_handler.n_dofs(); ++i) {
+        for (unsigned int j = 0; j < dof_handler.n_dofs(); ++j) {
+            if (dsp_dofs.exists(i, j)) {
                 dsp.add(i, j);
             }
         }
@@ -212,7 +223,7 @@ void NeumannSolver<dim>::setup_system()
     //  Initializing the all the matrices
     system_matrix.reinit(sparsity_pattern);
     system_rhs.reinit(dof_handler.n_dofs() + 1);
-   system_solution.reinit(dof_handler.n_dofs() + 1);
+    system_solution.reinit(dof_handler.n_dofs() + 1);
 }
 
 
@@ -229,33 +240,51 @@ void NeumannSolver<dim>::assemble_system()
                              update_values | update_gradients | update_quadrature_points |
                              update_JxW_values);
 
+    QGaussSimplex<dim - 1> face_quadrature_formula(fe.degree + 1);
+    FEFaceValues<dim> face_fe_values(mapping, fe, face_quadrature_formula, update_values | update_quadrature_points | update_JxW_values);
+
     const unsigned int   dofs_per_cell = fe.dofs_per_cell;
     const unsigned int   n_q_points    = quadrature_formula.size();
+    const unsigned int   face_n_q_points = face_quadrature_formula.size();
     // ExactSolution<dim> exact_solution;
     RHS_function<dim> rhs_function;
+    G_Neumann<dim> g_neu;
 
     FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
     Vector<double>       cell_rhs (dofs_per_cell);
     std::vector<unsigned int> local_dof_indices (dofs_per_cell);
 
-    std::vector<double>  basis_integrals(dofs_per_cell);
+    // std::cout << "hello" <<std::endl;
 
     for (const auto  &cell : dof_handler.active_cell_iterators()) {
         fe_values.reinit(cell);
+        std::vector<double>  basis_integrals(dofs_per_cell, 0.0);
         cell_matrix = 0;
         cell_rhs = 0;
 
         for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
             // float temp = exact_solution.value(fe_values.quadrature_point(q_point));
-            float temp = rhs_function.value(fe_values.quadrature_point(q_point));
+            double temp = rhs_function.value(fe_values.quadrature_point(q_point));
             for (unsigned int i = 0; i < dofs_per_cell ; ++i) {
                 for (unsigned int j = 0; j < dofs_per_cell; ++j) {
                     cell_matrix(i, j) += fe_values.shape_grad(i, q_point) * fe_values.shape_grad(j,
-                                         q_point) * fe_values.JxW(q_point);
+                                                                                                 q_point) * fe_values.JxW(q_point);
                 }
                 cell_rhs(i) += temp * fe_values.shape_value(i,
                                                             q_point) * fe_values.JxW(q_point);
-                basis_integrals += fe_values.shape_value(i, q_point) * fe_values.JxW(q_point);
+                basis_integrals[i] += fe_values.shape_value(i, q_point) * fe_values.JxW(q_point);
+            }
+        }
+
+        for (unsigned int f = 0; f < cell->n_faces(); ++f) {
+            if (cell->face(f)->at_boundary()) {
+                face_fe_values.reinit(cell, f);
+                for (unsigned int q_point = 0; q_point < face_n_q_points; ++q_point) {
+                    double g_neu_value = g_neu.value(face_fe_values.quadrature_point(q_point));
+                    for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+                        cell_rhs(i) += g_neu_value * face_fe_values.shape_value(i, q_point) * face_fe_values.JxW(q_point);
+                    }
+                }
             }
         }
 
@@ -263,7 +292,7 @@ void NeumannSolver<dim>::assemble_system()
         for (unsigned int i = 0; i < dofs_per_cell ; ++i) {
             for (unsigned int j = 0; j < dofs_per_cell; ++j) {
                 system_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i,
-                                     j));
+                                                                                          j));
             }
             system_rhs(local_dof_indices[i]) += cell_rhs(i);
             system_matrix.add(local_dof_indices[i], dof_handler.n_dofs(), basis_integrals[i]);
@@ -272,6 +301,7 @@ void NeumannSolver<dim>::assemble_system()
 
     }
     system_matrix.add(dof_handler.n_dofs(), dof_handler.n_dofs(), 0);
+    system_rhs(dof_handler.n_dofs()) = 0;
 }
 
 template<int dim>
@@ -279,6 +309,7 @@ void NeumannSolver<dim>::solve(int &niteration)
 {
     // std::cout << "Solver " << std::endl;
     SolverControl           solver_control (1000, 1e-12 * system_rhs.l2_norm());
+    // SolverGMRES<Vector<double>> cg (solver_control);
     SolverCG<Vector<double>>              cg (solver_control);
 
     // SparseILU<double> preconditioner;
@@ -297,7 +328,7 @@ void NeumannSolver<dim>::compute_error(double &L2_error, double &H1_error)
 {
     // std::cout << "Error ";
     ExactSolution<dim> exact_solution;
-    Vector<double> solution;
+    Vector<double> solution(dof_handler.n_dofs());
 
     for(unsigned int i = 0; i < dof_handler.n_dofs(); ++i){
         solution(i) = system_solution(i);
@@ -388,9 +419,9 @@ int main ()
     convergence_table.set_tex_format("iterations",  "r");
 
     convergence_table.evaluate_convergence_rates
-    ("L2", ConvergenceTable::reduction_rate_log2);
+        ("L2", ConvergenceTable::reduction_rate_log2);
     convergence_table.evaluate_convergence_rates
-    ("H1", ConvergenceTable::reduction_rate_log2);
+        ("H1", ConvergenceTable::reduction_rate_log2);
 
     std::cout << std::endl;
     convergence_table.write_text(std::cout);
