@@ -1,4 +1,4 @@
-# Poisson Equation
+# Variable Coefficient Problem
 This folder contains the implementation of finding solution to model problem with variable coefficient which is describe in chapter 4 of the book. The problem solved is:
 
 \begin{align*}
