@@ -330,11 +330,17 @@ NeumannSolver<dim>::assemble_system()
     {
       for(unsigned int j = 0; j < dofs_per_cell; ++j)
       {
-        system_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i, j));
+        system_matrix.add(local_dof_indices[i],
+                          local_dof_indices[j],
+                          cell_matrix(i, j));
       }
       system_rhs(local_dof_indices[i]) += cell_rhs(i);
-      system_matrix.add(local_dof_indices[i], dof_handler.n_dofs(), basis_integrals[i]);
-      system_matrix.add(dof_handler.n_dofs(), local_dof_indices[i], basis_integrals[i]);
+      system_matrix.add(local_dof_indices[i],
+                        dof_handler.n_dofs(),
+                        basis_integrals[i]);
+      system_matrix.add(dof_handler.n_dofs(),
+                        local_dof_indices[i],
+                        basis_integrals[i]);
     }
 
   }
