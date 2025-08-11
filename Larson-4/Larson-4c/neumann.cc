@@ -25,6 +25,7 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
+#include <typeinfo>
 
 using namespace dealii;
 
@@ -226,12 +227,16 @@ NeumannSolver<dim>::setup_system()
   dof_handler.distribute_dofs(fe);
 
   DynamicSparsityPattern dsp_dofs(dof_handler.n_dofs());
-  DoFTools::make_sparsity_pattern(dof_handler, dsp_dofs);
   DynamicSparsityPattern dsp(dof_handler.n_dofs() + 1);
 
-  DoFTools::make_sparsity_pattern(dof_handler, dsp);
+  DoFTools::make_sparsity_pattern(dof_handler, dsp_dofs);
+
   for(unsigned int i = 0; i < dof_handler.n_dofs(); ++i)
   {
+      for (auto j = dsp_dofs.begin(i); j < dsp_dofs.end(i) ; ++j)
+      {
+          dsp.add(i, j->column());
+      }
     dsp.add(i, dof_handler.n_dofs());
     dsp.add(dof_handler.n_dofs(), i);
   }
