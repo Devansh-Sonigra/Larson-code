@@ -225,19 +225,13 @@ NeumannSolver<dim>::setup_system()
 {
   dof_handler.distribute_dofs(fe);
 
-  DynamicSparsityPattern dsp(dof_handler.n_dofs() + 1);
   DynamicSparsityPattern dsp_dofs(dof_handler.n_dofs());
   DoFTools::make_sparsity_pattern(dof_handler, dsp_dofs);
+  DynamicSparsityPattern dsp(dof_handler.n_dofs() + 1);
 
+  DoFTools::make_sparsity_pattern(dof_handler, dsp);
   for(unsigned int i = 0; i < dof_handler.n_dofs(); ++i)
   {
-    for(unsigned int j = 0; j < dof_handler.n_dofs(); ++j)
-    {
-      if(dsp_dofs.exists(i, j))
-      {
-        dsp.add(i, j);
-      }
-    }
     dsp.add(i, dof_handler.n_dofs());
     dsp.add(dof_handler.n_dofs(), i);
   }
@@ -265,7 +259,7 @@ NeumannSolver<dim>::assemble_system()
                           update_quadrature_points | update_JxW_values);
 
   QGaussSimplex < dim - 1 > face_quadrature_formula(fe.degree + 1);
-  FEFaceValues<dim> face_fe_values(mapping, fe, face_quadrature_formula, 
+  FEFaceValues<dim> face_fe_values(mapping, fe, face_quadrature_formula,
                                    update_values | update_quadrature_points |
                                    update_JxW_values);
 
@@ -299,7 +293,7 @@ NeumannSolver<dim>::assemble_system()
                                fe_values.shape_grad(j, q_point) *
                                fe_values.JxW(q_point);
         }
-        cell_rhs(i) += temp * 
+        cell_rhs(i) += temp *
                        fe_values.shape_value(i, q_point) *
                        fe_values.JxW(q_point);
         basis_integrals[i] += fe_values.shape_value(i, q_point) *
