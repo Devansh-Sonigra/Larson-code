@@ -4,7 +4,7 @@ This folder contains the implementation of finding solution Heat equation which 
 $$
   u_t-\Delta u &= f \quad \text{in } \Omega,\\
   u &= 0 \quad \text{on } \partial\Omega,\, \forall t, \\
-  u(x,0) = u_0(x)
+  u(x,0) &= u_0(x)
 $$
 
 
