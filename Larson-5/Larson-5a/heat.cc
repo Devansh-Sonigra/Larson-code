@@ -86,6 +86,7 @@ private:
 
     double                  final_time = 1.0;
     double                  del_t = 1e-2;
+    double                  theta = 0.5;
 
     Triangulation<dim>      triangulation;
     const FE_Q<dim>         fe;
@@ -93,11 +94,11 @@ private:
 
     SparsityPattern         sparsity_pattern;
     SparseMatrix<double>    system_matrix;
+    SparseMatrix<double>    mass_matrix;
     SparseMatrix<double>    stiffness_matrix;
 
     Vector<double>          system_rhs;
     Vector<double>          solution;
-    Vector<double>          temp_solution;
 };
 
 template<int dim>
@@ -127,10 +128,10 @@ HeatSolver<dim>::setup_system()
 
     //  Initializing the all the matrices
     system_matrix.reinit(sparsity_pattern);
+    mass_matrix.reinit(sparsity_pattern);
     stiffness_matrix.reinit(sparsity_pattern);
     system_rhs.reinit(dof_handler.n_dofs());
     solution.reinit(dof_handler.n_dofs());
-    temp_solution.reinit(dof_handler.n_dofs());
 }
 
 template<int dim>
@@ -138,6 +139,7 @@ void
 HeatSolver<dim>::assemble_system()
 {
     system_matrix = 0;
+    mass_matrix = 0;
     stiffness_matrix = 0;
 
     system_rhs = 0;
@@ -183,13 +185,14 @@ HeatSolver<dim>::assemble_system()
             for(unsigned int j = 0; j < dofs_per_cell; ++j)
             {
                 system_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i, j));
+                mass_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i, j));
                 stiffness_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix_stiff(i, j));
             }
             system_rhs(local_dof_indices[i]) += cell_rhs(i);
         }
     }
 
-    system_matrix.add(del_t, stiffness_matrix);
+    system_matrix.add(del_t * theta, stiffness_matrix);
     std::map<unsigned int, double> boundary_values;
     VectorTools::interpolate_boundary_values( //mapping,
         dof_handler,
@@ -217,13 +220,22 @@ HeatSolver<dim>::assemble_rhs(unsigned int& k)
     const unsigned int   n_q_points    = quadrature_formula.size();
     RHS_function<dim> rhs_function;
     double temp_1 = k * del_t;
-    double temp;
+    double temp_2 = (k - 1) * del_t;
+    double rhs_1;
+    double rhs_2;
 
     Vector<double>       cell_rhs(dofs_per_cell);
     std::vector<unsigned int> local_dof_indices(dofs_per_cell);
 
-    system_matrix.add(-del_t, stiffness_matrix);
-    system_matrix.vmult(temp_solution, solution);
+    Vector<double>          temp_solution_1;
+    temp_solution_1.reinit(dof_handler.n_dofs());
+    mass_matrix.vmult(temp_solution_1, solution);
+
+    Vector<double>          temp_solution_2;
+    temp_solution_2.reinit(dof_handler.n_dofs());
+    stiffness_matrix.vmult(temp_solution_2, solution);
+    temp_solution_2 *= -del_t * (1 - theta);
+
     for(const auto&  cell : dof_handler.active_cell_iterators())
     {
         fe_values.reinit(cell);
@@ -231,10 +243,11 @@ HeatSolver<dim>::assemble_rhs(unsigned int& k)
 
         for(unsigned int q_point = 0; q_point < n_q_points; ++q_point)
         {
-            temp = rhs_function.value(temp_1, fe_values.quadrature_point(q_point));
+            rhs_1 = rhs_function.value(temp_1, fe_values.quadrature_point(q_point));
+            rhs_2 = rhs_function.value(temp_2, fe_values.quadrature_point(q_point));
             for(unsigned int i = 0; i < dofs_per_cell ; ++i)
             {
-                cell_rhs(i) += del_t * temp * fe_values.shape_value(i, q_point) * fe_values.JxW(q_point);
+                cell_rhs(i) += del_t * (theta * rhs_1 + (1 - theta) * rhs_2 )* fe_values.shape_value(i, q_point) *  fe_values.JxW(q_point);
             }
         }
 
@@ -247,8 +260,9 @@ HeatSolver<dim>::assemble_rhs(unsigned int& k)
     }
 
     // boundary condition
-    system_rhs += temp_solution;
-    system_matrix.add(del_t, stiffness_matrix);
+    system_rhs += temp_solution_1;
+    system_rhs += temp_solution_2;
+
     std::map<unsigned int, double> boundary_values;
     VectorTools::interpolate_boundary_values( //mapping,
         dof_handler,
@@ -266,7 +280,7 @@ void
 HeatSolver<dim>::solve(unsigned int& n)
 {
     SolverControl               solver_control(1000, 1e-12 * system_rhs.l2_norm());
-    SolverGMRES<Vector<double>> cg(solver_control);
+    SolverCG<Vector<double>> cg(solver_control);
 
     if(n == 0)
     {
@@ -300,11 +314,12 @@ HeatSolver<dim>::run()
     make_grid_and_dofs();
     setup_system();
     assemble_system();
-    for(unsigned int n = 0; n < noi; ++n)
+    for(unsigned int n = 1; n < noi; ++n)
     {
-        solve(n);
+        unsigned int k = n - 1;
+        solve(k);
         assemble_rhs(n);
-        output_results(n);
+        output_results(k);
     }
 }
 
